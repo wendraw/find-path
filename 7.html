@@ -1,0 +1,195 @@
+<style>
+    .cell {
+        width: 6px;
+        height: 6px;
+        border-right: 1px solid white;
+        border-bottom: 1px solid white;
+        background-color: #ddd;
+    }
+
+    #container {
+        display: flex;
+        width: 700px;
+        flex-wrap: wrap;
+    }
+
+    button {
+        margin-top: 10px;
+    }
+</style>
+
+<div id="container"></div>
+<button onclick="localStorage.map = JSON.stringify(map);">save</button>
+<button onclick="delete localStorage.map;location.reload();">clear</button>
+<button onclick="findPath(map, start, end);">GO!!!</button>
+
+<script>
+    const map = localStorage.map ? JSON.parse(localStorage.map) : new Array(10000).fill(0);
+    const start = [0, 0];
+    const end = [99, 99];
+    const container = document.getElementById('container');
+    function show(map) {
+        let move = false;
+        let clear = false;
+
+        container.addEventListener('mousedown', e => {
+            move = true;
+            clear = e.button === 2; // 鼠标右键
+        })
+
+        container.addEventListener("mouseup", e => {
+            move = false;
+        })
+
+        // 取消浏览器右键弹出菜单
+        container.addEventListener("contextmenu", e => e.preventDefault());
+
+        for (let y = 0; y < 100; y++) {
+            for (let x = 0; x < 100; x++) {
+                let cell = document.createElement('div');
+                cell.classList.add("cell");
+                cell.addEventListener("mousemove", () => {
+                    if (move) {
+                        if (clear) {
+                            cell.style.backgroundColor = "";
+                            map[y * 100 + x] = 0;
+                        } else {
+                            cell.style.backgroundColor = "black";
+                            map[y * 100 + x] = 1;
+                        }
+                    }
+                });
+
+                container.appendChild(cell);
+
+                if (map[y * 100 + x] === 1) {
+                    cell.style.backgroundColor = "black";
+                }
+
+                if (x === start[0] && y === start[1]) {
+                    cell.style.backgroundColor = "yellow";
+                }
+                if (x === end[0] && y === end[1]) {
+                    cell.style.backgroundColor = "red";
+                }
+            }
+        }
+    }
+    show(map);
+
+    async function findPath(map, start, end) {
+        let _map = map.slice();
+        let collection = new BinaryHeap([start], (a, b) => distance(a) - distance(b));
+
+        // 记录到起点的长度
+        let table = new Array(10000).fill(Infinity);
+        table[start[1] * 100 + start[0]] = 0;
+
+        while (collection.length) {
+            let [x, y] = collection.take();
+            let fromStart = table[y * 100 + x];
+            if (x === end[0] && y === end[1]) {
+                let path = [];
+                while (x !== start[0] || y !== start[1]) {
+                    path.push([x, y]);
+                    container.children[y * 100 + x].style.backgroundColor = "pink";
+                    [x, y] = _map[y * 100 + x];
+                }
+                return path;
+            }
+
+            await insert([x - 1, y], [x, y], fromStart + 1); // 左
+            await insert([x + 1, y], [x, y], fromStart + 1); // 右
+            await insert([x, y - 1], [x, y], fromStart + 1); // 上
+            await insert([x, y + 1], [x, y], fromStart + 1); // 下
+
+            (map[y * 100 + (x - 1)] === 0 || map[(y - 1) * 100 + x] === 0) && await insert([x - 1, y - 1], [x, y], fromStart + 1.4); // 左下
+            (map[y * 100 + (x - 1)] === 0 || map[(y + 1) * 100 + x] === 0) && await insert([x - 1, y + 1], [x, y], fromStart + 1.4); // 左上
+            (map[y * 100 + (x + 1)] === 0 || map[(y - 1) * 100 + x] === 0) && await insert([x + 1, y - 1], [x, y], fromStart + 1.4); // 右下
+            (map[y * 100 + (x + 1)] === 0 || map[(y + 1) * 100 + x] === 0) && await insert([x + 1, y + 1], [x, y], fromStart + 1.4); // 右上
+        }
+        return null;
+
+        async function insert([x, y], pre, fromStart) {
+            if (_map[y * 100 + x] === 1) return;
+
+            if (x < 0 || y < 0 || x >= 100 || y >= 100) return;
+
+            if (fromStart >= table[y * 100 + x]) return;
+
+            _map[y * 100 + x] = pre;
+            table[y * 100 + x] = fromStart;
+            container.children[y * 100 + x].style.backgroundColor = "lightgreen";
+            await sleep(1);
+            collection.insert([x, y]);
+        }
+
+        function distance([x, y]) {
+            return (x - end[0]) ** 2 + (y - end[1]) ** 2;
+        }
+    }
+
+    function sleep(ms) {
+        return new Promise((resolve, reject) => {
+            setTimeout(resolve, ms);
+        })
+    }
+
+    class BinaryHeap {
+        constructor(data, compare) {
+            this.data = data;
+            this.compare = compare;
+        }
+
+        take() {
+            if (this.data.length === 0) return;
+
+            let min = this.data[0];
+            let i = 0;
+            // fix heap
+            while (i < this.data.length) {
+                // 没有左子节点
+                if (i * 2 + 1 >= this.data.length) break;
+                // 没有右子节点
+                if (i * 2 + 2 >= this.data.length) {
+                    this.data[i] = this.data[i * 2 + 1];
+                    i = i * 2 + 1;
+                    break;
+                }
+                // 比较左右子节点的大小，更小的补到父节点
+                if (this.compare(this.data[i * 2 + 1], this.data[i * 2 + 2]) < 0) {
+                    this.data[i] = this.data[i * 2 + 1];
+                    i = i * 2 + 1;
+                } else {
+                    this.data[i] = this.data[i * 2 + 2];
+                    i = i * 2 + 2;
+                }
+            }
+            if (i < this.data.length - 1) {
+                this.insertAt(i, this.data.pop());
+            } else {
+                this.data.pop();
+            }
+            return min;
+        }
+
+        insertAt(i, v) {
+            this.data[i] = v;
+            // 对比当前节点与其子节点，如果子节点更小就交换它们
+            while (i > 0 && this.compare(v, this.data[Math.floor((i - 1) / 2)]) < 0) {
+                this.data[i] = this.data[Math.floor((i - 1) / 2)];
+                this.data[Math.floor((i - 1) / 2)] = v;
+                i = Math.floor((i - 1) / 2);
+            }
+        }
+
+        insert(v) {
+            this.insertAt(this.data.length, v);
+        }
+
+        get length() {
+            return this.data.length;
+        }
+    }
+
+</script>

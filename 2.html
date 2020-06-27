@@ -1,0 +1,107 @@
+<style>
+    .cell {
+        width: 6px;
+        height: 6px;
+        border-right: 1px solid white;
+        border-bottom: 1px solid white;
+        background-color: #ddd;
+    }
+
+    #container {
+        display: flex;
+        width: 700px;
+        flex-wrap: wrap;
+    }
+
+    button {
+        margin-top: 10px;
+    }
+</style>
+
+<div id="container"></div>
+<button onclick="localStorage.map = JSON.stringify(map);">save</button>
+<button onclick="delete localStorage.map;location.reload();">clear</button>
+
+<script>
+    const map = localStorage.map ? JSON.parse(localStorage.map) : new Array(10000).fill(0);
+    const container = document.getElementById('container');
+    const start = [0, 0];
+    const end = [99, 99];
+    function show(map) {
+        let move = false;
+        let clear = false;
+
+        container.addEventListener('mousedown', e => {
+            move = true;
+            clear = e.button === 2; // 鼠标右键
+        })
+
+        container.addEventListener("mouseup", e => {
+            move = false;
+        })
+
+        // 取消浏览器右键弹出菜单
+        container.addEventListener("contextmenu", e => e.preventDefault());
+
+        for (let y = 0; y < 100; y++) {
+            for (let x = 0; x < 100; x++) {
+                let cell = document.createElement('div');
+                cell.classList.add("cell");
+                cell.addEventListener("mousemove", () => {
+                    if (move) {
+                        if (clear) {
+                            cell.style.backgroundColor = "";
+                            map[y * 100 + x] = 0;
+                        } else {
+                            cell.style.backgroundColor = "black";
+                            map[y * 100 + x] = 1;
+                        }
+                    }
+                });
+
+                container.appendChild(cell);
+
+                if (map[y * 100 + x] === 1) {
+                    cell.style.backgroundColor = "black";
+                }
+
+                if (x === start[0] && y === start[1]) {
+                    cell.style.backgroundColor = "yellow";
+                }
+                if (x === end[0] && y === end[1]) {
+                    cell.style.backgroundColor = "red";
+                }
+            }
+        }
+    }
+    show(map);
+
+    function findPath(map, start, end) {
+        let _map = map.slice();
+        let queue = [start];
+
+        while (queue.length) {
+            let [x, y] = queue.shift();
+            console.log(x, y);
+            if (x === end[0] && y === end[1]) {
+                return true;
+            }
+
+
+            insert([x - 1, y]);
+            insert([x + 1, y]);
+            insert([x, y - 1]);
+            insert([x, y + 1]);
+        }
+        return false;
+
+        function insert([x, y]) {
+            if (_map[y * 100 + x] !== 0) return;
+            if (x < 0 || y < 0 || x >= 100 || y >= 100) return;
+
+            _map[y * 100 + x] = 2;
+            queue.push([x, y]);
+        }
+    }
+
+</script>
